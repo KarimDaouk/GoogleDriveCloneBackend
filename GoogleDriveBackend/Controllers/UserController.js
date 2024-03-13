@@ -8,7 +8,7 @@ const getAllUsers = async (req, res) => {
   try {
     const users = await User.find();
     const response = new ApiResponse(200, "Success", users);
-    res.json.status(200).json(users);
+    res.status(200).json(users); 
   } catch (err) {
     const response = new ApiResponse(500, "Internal Server Error", {});
     res.status(200).send(response);
