@@ -2,17 +2,18 @@ const express = require('express');
 const router = express.Router();
 const documentsController = require('../Controllers/DocumentsController');
 const upload = require('../Middleware/UploadMiddleware')
+const authenticate = require('../Middleware/AuthenticatoinMiddleware')
 
-router.post("/upload", upload.single('file'), documentsController.createDocument);
-
-
-router.get("/:id", documentsController.getDocumentById);
+router.post("/upload", authenticate, upload.single('file'), documentsController.createDocument);
 
 
-router.put("/:id", documentsController.updateDocumentById);
+router.get("/:id", authenticate, documentsController.getDocumentById);
 
 
-router.delete("/:id", documentsController.deleteDocumentById);
+router.put("/:id", authenticate, documentsController.updateDocumentById);
+
+
+router.delete("/:id",authenticate,  documentsController.deleteDocumentById);
 
 
 

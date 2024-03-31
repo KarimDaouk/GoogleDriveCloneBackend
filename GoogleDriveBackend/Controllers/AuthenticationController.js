@@ -4,6 +4,8 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken'); // For generating JWT tokens
 const User = require('../Models/Schemas/User'); // Assuming you have a User model defined
 const ApiResponse = require('../Models/ApiResponse');
+const loginResponseDTO= require('../Models/DTO/LoginResponseDTO');
+const LoginResponseDTO = require('../Models/DTO/LoginResponseDTO');
 require('dotenv').config();
 
 const secretKey = process.env.SECRET_KEY;
@@ -32,12 +34,14 @@ const login = async (req, res) => {
 
     // If credentials are correct, generate JWT token and add it to the user Object
     const token = jwt.sign({ userId: user._id }, secretKey, { expiresIn: '1h' });
-    user.token= token;
+  
+    const userToSend = new LoginResponseDTO(user.id, user.name, user.email, '****', token);
    
+   console.log(userToSend);
 
     // Send token in response
-    const response = new ApiResponse(200, "Login Successful",user)
-    res.status(200).json({ response });
+    const response = new ApiResponse(200, "Login Successful",userToSend);
+    res.status(200).json( response );
   } catch (error) {
     console.error('Error during login:', error);
     res.status(500).json({ message: 'Server error' });
