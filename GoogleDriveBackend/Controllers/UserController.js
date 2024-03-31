@@ -82,10 +82,36 @@ const createUser = async (req, res) => {
     }
   };
 
+  const filterUsersByQuery = async (req, res) => {
+    try {
+      const userId = req.params.id;
+      const searchString = req.query.filter;
+  
+      // Get all users
+      const users = await User.find();
+  
+      // Filter users based on the search query and exclude the user with the specified userId
+      const filteredUsers = users.filter(user =>
+        user._id.toString() !== userId &&
+        (user.name.toLowerCase().includes(searchString) || user.email.toLowerCase().includes(searchString))
+      );
+  
+      // Respond with the filtered users
+      res.status(200).json(new ApiResponse(200, "Users retrieved successfully", filteredUsers));
+    } catch (error) {
+      // Handle errors
+      console.error("Error fetching users:", error);
+      const response = new ApiResponse(500, "Internal Server Error", {});
+      res.status(200).json(response);
+    }
+  };
+  
+
 module.exports = {
   getAllUsers,
   getUserById,
   updateUserById,
   deleteUserById,
-  createUser
+  createUser,
+  filterUsersByQuery
 };

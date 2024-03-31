@@ -12,5 +12,6 @@ router.delete("/:id", userController.deleteUserById);
 
 router.post("/", userController.createUser); 
 
+router.get("/search/:id", userController.filterUsersByQuery);
 
 module.exports = router;

@@ -209,6 +209,40 @@ const getDeletedDocumentsById = async (req, res) => {
   }
 }
 
+const filterDocumentsbyQuery = async (req, res) => {
+  try {
+    const userId = req.params.id; 
+    const searchString = req.query.filter.toLowerCase(); 
+
+    // Search for documents owned by the user
+    const ownedDocuments = await Document.find({ ownerId: userId });
+
+    // Search for documents shared with the user
+    const sharedDocuments = await Document.find({ sharedWith: userId });
+
+    // Filter owned documents containing the search query
+    const filteredOwnedDocuments = ownedDocuments.filter(document =>
+      document.title.toLowerCase().includes(searchString)
+    );
+
+    // Filter shared documents containing the search query
+    const filteredSharedDocuments = sharedDocuments.filter(document =>
+      document.title.toLowerCase().includes(searchString) 
+    );
+
+    const filteredDocuments = filteredOwnedDocuments.concat(filteredSharedDocuments);
+    res
+    .status(200)
+    .json(new ApiResponse(200, "Documents retrieved successfully", filteredDocuments));
+
+    } catch (error) {
+    console.error("Error fetching user's documents:", error);
+    const response = new ApiResponse(500, "Internal Server Error", {});
+    res.status(200).json(response);
+    }
+};
+
+
 // Export the controller methods
 module.exports = {
   createDocument,
@@ -217,5 +251,6 @@ module.exports = {
   updateDocumentById,
   getOwnedDocumentsById,
   getSharedDocumentsById,
-  getDeletedDocumentsById
+  getDeletedDocumentsById,
+  filterDocumentsbyQuery
 };
