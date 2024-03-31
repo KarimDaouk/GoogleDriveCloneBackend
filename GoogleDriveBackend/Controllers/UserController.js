@@ -48,7 +48,10 @@ const updateUserById = async (req, res) => {
 // Delete a user by ID
 const deleteUserById = async (req, res) => {
   try {
-    const user = await User.findByIdAndRemove(req.params.id);
+    console.log(req.params.id);
+    const us = await User.findById(req.params.id);
+    console.log(us);
+    const user = await User.findByIdAndDelete(req.params.id);
     res.json({ msg: "User removed" });
   } catch (err) {
     res.status(500).send("Server Error");
@@ -64,9 +67,10 @@ const createUser = async (req, res) => {
       const newUser = new User({
         name: req.body.name,
         email: req.body.email,
-        password: hashedPassword 
+        password: hashedPassword,
+        profilePicture: req.body.profilePicture || "https://avatar-management--avatars.us-west-2.prod.public.atl-paas.net/default-avatar.png"
       });
-  
+
       // Save the new user to the database
       await newUser.save();
   
