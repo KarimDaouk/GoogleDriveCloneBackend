@@ -241,7 +241,6 @@ const filterDocumentsbyQuery = async (req, res) => {
     }
 };
 
-
 // Export the controller methods
 module.exports = {
   createDocument,
