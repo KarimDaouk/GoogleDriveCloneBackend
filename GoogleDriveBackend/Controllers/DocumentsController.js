@@ -1,4 +1,5 @@
 const Document = require("../Models/Schemas/Document");
+const User = require("../Models/Schemas/User")
 const ApiResponse = require("../Models/ApiResponse");
 const mongoose = require("mongoose");
 const ObjectId = mongoose.Types.ObjectId;
@@ -13,7 +14,12 @@ const createDocument = async (req, res) => {
         .status(200)
         .json(new ApiResponse(400, "Owner ID required", {}));
     }
-
+    const user = User.findById(ownerId);
+    if(!user){
+      return res
+      .status(200)
+      .json(new ApiResponse(400, "User not Found in Database!", {}));
+    }
     // Check if there's an uploaded file
     if (!req.file) {
       return res
