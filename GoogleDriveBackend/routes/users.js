@@ -12,7 +12,7 @@ router.put("/:id", authenticate, userController.updateUserById);
 
 router.delete("/:id",authenticate, userController.deleteUserById);
 
-router.post("/", authenticate, userController.createUser); 
+router.post("/", userController.createUser); 
 
 router.get("/search/:id", authenticate, userController.filterUsersByQuery);
 
