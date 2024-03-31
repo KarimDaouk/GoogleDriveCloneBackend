@@ -83,29 +83,33 @@ const deleteDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
 
-    // Find document by ID in the database and delete it
-    const deletedDocument = await Document.findByIdAndDelete(documentId);
+    // Find document by ID in the database and update the deleted status and date of deletion
+    const updatedDocument = await Document.findByIdAndUpdate(
+      documentId,
+      {
+        deleted: true,
+        dateOfDeletion: new Date()
+      },
+      { new: true }
+    );
 
     // Check if document exists
-    if (!deletedDocument) {
+    if (!updatedDocument) {
       return res
-        .status(200)
-        .json(new ApiResponse(404, "Document not found", {}));
+        .status(404)
+        .json({ success: false, message: "Document not found" });
     }
 
     // Respond with success message
     res
       .status(200)
-      .json(new ApiResponse(200, "Document deleted successfully", {}));
+      .json({ success: true, message: "Document deleted successfully" });
   } catch (error) {
     // Handle errors
     console.error("Error deleting document:", error);
-    const response = new ApiResponse(500, "Internal Server Error", {});
-    res.status(200).json(response);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
-
-
 
 const updateDocumentById = async (req, res) => {
   try {
@@ -158,8 +162,6 @@ const updateDocumentById = async (req, res) => {
     res.status(200).json(response);
   }
 };
-
-
 
 // Export the controller methods
 module.exports = {
