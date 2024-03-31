@@ -83,25 +83,31 @@ const deleteDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
 
-    // Find document by ID in the database and delete it
-    const deletedDocument = await Document.findByIdAndDelete(documentId);
+    // Find document by ID in the database and update the deleted status and date of deletion
+    const updatedDocument = await Document.findByIdAndUpdate(
+      documentId,
+      {
+        deleted: true,
+        dateOfDeletion: new Date()
+      },
+      { new: true }
+    );
 
     // Check if document exists
-    if (!deletedDocument) {
+    if (!updatedDocument) {
       return res
-        .status(200)
-        .json(new ApiResponse(404, "Document not found", {}));
+        .status(404)
+        .json({ success: false, message: "Document not found" });
     }
 
     // Respond with success message
     res
       .status(200)
-      .json(new ApiResponse(200, "Document deleted successfully", {}));
+      .json({ success: true, message: "Document deleted successfully" });
   } catch (error) {
     // Handle errors
     console.error("Error deleting document:", error);
-    const response = new ApiResponse(500, "Internal Server Error", {});
-    res.status(200).json(response);
+    res.status(500).json({ success: false, message: "Internal Server Error" });
   }
 };
 
@@ -156,10 +162,94 @@ const updateDocumentById = async (req, res) => {
   }
 };
 
+const getOwnedDocumentsById = async (req, res) => {
+  try {
+    const userId = req.params.id; 
+    const userDocuments = await Document.find({ ownerId: userId });
+    res
+      .status(200)
+      .json(new ApiResponse(200, "Documents retrieved successfully", userDocuments));
+  } catch (error) {
+    console.error("Error fetching user's documents:", error);
+    const response = new ApiResponse(500, "Internal Server Error", {});
+    res.status(200).json(response);
+  }
+}
+
+const getSharedDocumentsById = async (req, res) => {
+
+  try {
+    const userId = req.params.id; 
+    const sharedDocuments = await Document.find({ sharedWith: userId });
+    res
+      .status(200)
+      .json(new ApiResponse(200, "Shared documents retrieved successfully", sharedDocuments));
+  } catch (error) {
+      console.error("Error fetching shared documents:", error);
+      const response = new ApiResponse(500, "Internal Server Error", {});
+      res
+        .status(200)
+        .json(response);
+  }
+
+}
+
+const getDeletedDocumentsById = async (req, res) => {
+  try {
+    const userId = req.params.id; 
+    const deletedDocuments = await Document.find({ ownerId: userId, deleted : true });
+    res
+      .status(200)
+      .json(new ApiResponse(200, "Documents retrieved successfully", deletedDocuments));
+  } catch (error) {
+    console.error("Error fetching user's documents:", error);
+    const response = new ApiResponse(500, "Internal Server Error", {});
+    res.status(200).json(response);
+  }
+}
+
+const filterDocumentsbyQuery = async (req, res) => {
+  try {
+    const userId = req.params.id; 
+    const searchString = req.query.filter.toLowerCase(); 
+
+    // Search for documents owned by the user
+    const ownedDocuments = await Document.find({ ownerId: userId });
+
+    // Search for documents shared with the user
+    const sharedDocuments = await Document.find({ sharedWith: userId });
+
+    // Filter owned documents containing the search query
+    const filteredOwnedDocuments = ownedDocuments.filter(document =>
+      document.title.toLowerCase().includes(searchString)
+    );
+
+    // Filter shared documents containing the search query
+    const filteredSharedDocuments = sharedDocuments.filter(document =>
+      document.title.toLowerCase().includes(searchString) 
+    );
+
+    const filteredDocuments = filteredOwnedDocuments.concat(filteredSharedDocuments);
+    res
+    .status(200)
+    .json(new ApiResponse(200, "Documents retrieved successfully", filteredDocuments));
+
+    } catch (error) {
+    console.error("Error fetching user's documents:", error);
+    const response = new ApiResponse(500, "Internal Server Error", {});
+    res.status(200).json(response);
+    }
+};
+
+
 // Export the controller methods
 module.exports = {
   createDocument,
   getDocumentById,
   deleteDocumentById,
   updateDocumentById,
+  getOwnedDocumentsById,
+  getSharedDocumentsById,
+  getDeletedDocumentsById,
+  filterDocumentsbyQuery
 };

@@ -33,7 +33,14 @@ const DocumentSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'users',
       default:[]
-    }]
+    }],
+    deleted: {
+      type: Boolean,
+      default: false
+    },
+    dateOfDeletion: {
+      type: Date
+    }
   });
   
   module.exports = mongoose.model('Documents', DocumentSchema);
