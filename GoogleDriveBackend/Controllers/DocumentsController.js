@@ -1,5 +1,5 @@
 const Document = require("../Models/Schemas/Document");
-const ApiResponse = require("../Models/APIResponse");
+const ApiResponse = require("../Models/ApiResponse");
 const mongoose = require("mongoose");
 const ObjectId = mongoose.Types.ObjectId;
 
@@ -21,12 +21,6 @@ const createDocument = async (req, res) => {
         .json(new ApiResponse(400, "File uploads Required", {}));
     }
 
-    // console.log(req.body.ownerId);
-    // console.log(req.file.originalname);
-    // console.log(req.file.title)
-    // console.log(req.file.filePath);
-    // console.log(req.file.fileSize)
-    // Create a new document instance
     const newDocument = new Document({
       ownerId: req.body.ownerId,
       title: req.file.originalname,
@@ -105,18 +99,15 @@ const deleteDocumentById = async (req, res) => {
   }
 };
 
-
-
 const updateDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
     const { ownerId, sharedWith } = req.body;
 
-
     // Check if sharedWith is provided and convert strings to ObjectId
-    const sharedWithIds = sharedWith.map(userId =>  new mongoose.Types.ObjectId(userId));
-    
-
+    const sharedWithIds = sharedWith.map(
+      (userId) => new mongoose.Types.ObjectId(userId)
+    );
 
     // Find document by ID in the database
     const document = await Document.findById(documentId);
@@ -158,8 +149,6 @@ const updateDocumentById = async (req, res) => {
     res.status(200).json(response);
   }
 };
-
-
 
 // Export the controller methods
 module.exports = {

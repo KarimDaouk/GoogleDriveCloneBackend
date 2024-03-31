@@ -1,6 +1,6 @@
 // controllers/userController.js
 const User = require("../Models/Schemas/User");
-const ApiResponse = require("../Models/APIResponse");
+const ApiResponse = require("../Models/ApiResponse");
 const bcrypt = require('bcrypt');
 
 // Get all users
@@ -8,7 +8,7 @@ const getAllUsers = async (req, res) => {
   try {
     const users = await User.find();
     const response = new ApiResponse(200, "Success", users);
-    res.status(200).json(users); 
+    res.status(200).json(response); 
   } catch (err) {
     const response = new ApiResponse(500, "Internal Server Error", {});
     res.status(200).send(response);
