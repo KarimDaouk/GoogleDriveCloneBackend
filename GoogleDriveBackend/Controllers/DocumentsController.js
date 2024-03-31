@@ -163,10 +163,59 @@ const updateDocumentById = async (req, res) => {
   }
 };
 
+const getOwnedDocumentsById = async (req, res) => {
+  try {
+    const userId = req.params.id; 
+    const userDocuments = await Document.find({ ownerId: userId });
+    res
+      .status(200)
+      .json(new ApiResponse(200, "Documents retrieved successfully", userDocuments));
+  } catch (error) {
+    console.error("Error fetching user's documents:", error);
+    const response = new ApiResponse(500, "Internal Server Error", {});
+    res.status(200).json(response);
+  }
+}
+
+const getSharedDocumentsById = async (req, res) => {
+
+  try {
+    const userId = req.params.id; 
+    const sharedDocuments = await Document.find({ sharedWith: userId });
+    res
+      .status(200)
+      .json(new ApiResponse(200, "Shared documents retrieved successfully", sharedDocuments));
+  } catch (error) {
+      console.error("Error fetching shared documents:", error);
+      const response = new ApiResponse(500, "Internal Server Error", {});
+      res
+        .status(200)
+        .json(response);
+  }
+
+}
+
+const getDeletedDocumentsById = async (req, res) => {
+  try {
+    const userId = req.params.id; 
+    const deletedDocuments = await Document.find({ ownerId: userId, deleted : true });
+    res
+      .status(200)
+      .json(new ApiResponse(200, "Documents retrieved successfully", deletedDocuments));
+  } catch (error) {
+    console.error("Error fetching user's documents:", error);
+    const response = new ApiResponse(500, "Internal Server Error", {});
+    res.status(200).json(response);
+  }
+}
+
 // Export the controller methods
 module.exports = {
   createDocument,
   getDocumentById,
   deleteDocumentById,
   updateDocumentById,
+  getOwnedDocumentsById,
+  getSharedDocumentsById,
+  getDeletedDocumentsById
 };

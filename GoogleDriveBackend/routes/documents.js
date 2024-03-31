@@ -5,15 +5,16 @@ const upload = require('../Middleware/UploadMiddleware')
 
 router.post("/upload", upload.single('file'), documentsController.createDocument);
 
-
 router.get("/:id", documentsController.getDocumentById);
-
 
 router.put("/:id", documentsController.updateDocumentById);
 
-
 router.delete("/:id", documentsController.deleteDocumentById);
 
+router.get("/owned/:id", documentsController.getOwnedDocumentsById);
 
+router.get("/shared/:id", documentsController.getSharedDocumentsById);
+
+router.get("/deleted/:id", documentsController.getDeletedDocumentsById);
 
 module.exports = router;
