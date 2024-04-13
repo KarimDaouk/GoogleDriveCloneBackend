@@ -18,4 +18,6 @@ app.use("/users",userRouter)
 app.use("/auth",authRouter)
 app.use("/document",documentRouter)
 
-app.listen(3000)
+
+const PORT =3000
+app.listen(PORT)
