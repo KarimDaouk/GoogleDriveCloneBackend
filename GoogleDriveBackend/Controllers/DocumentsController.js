@@ -2,6 +2,8 @@ const Document = require("../Models/Schemas/Document");
 const User = require("../Models/Schemas/User")
 const ApiResponse = require("../Models/ApiResponse");
 const mongoose = require("mongoose");
+const fs = require('fs');
+const path = require('path');
 const ObjectId = mongoose.Types.ObjectId;
 
 // Controller methods for managing documents
@@ -78,6 +80,60 @@ const getDocumentById = async (req, res) => {
     res.status(200).json(response);
   }
 };
+
+const getActualDocumentById = async (req, res) => {
+  try {
+    const documentId = req.params.id;
+
+    // Find document by ID in the database
+    const document = await Document.findById(documentId);
+
+    console.log("This is the document", document)
+
+    // Check if the document exists
+    if (!document) {
+      return res.status(404).json(new ApiResponse(404, "Document not found", {}));
+    }
+
+    // Assuming 'filePath' is a field in your document schema that holds the path to the file
+    const filePath = document.filePath;
+
+    console.log("This is the file path", filePath)
+
+    // Check if file exists and is accessible
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json(new ApiResponse(404, "File not found", {}));
+    }
+
+    // Determine the content type from the file extension
+    const mimeType = getMimeType(filePath);
+
+    // Set the correct headers to inform the browser about how to handle the file
+    res.setHeader('Content-Type', mimeType);
+
+    // Pipe the file stream to the response
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+  } catch (error) {
+    console.error("Error fetching document:", error);
+    res.status(500).json(new ApiResponse(500, "Internal Server Error", {}));
+  }
+};
+
+function getMimeType(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+  switch (ext) {
+    case '.pdf': return 'application/pdf';
+    case '.jpg':
+    case '.jpeg': return 'image/jpeg';
+    case '.png': return 'image/png';
+    case '.gif': return 'image/gif';
+    case '.html': return 'text/html';
+    case '.txt': return 'text/plain';
+    default: return 'application/octet-stream'; // Default, generally forces a download
+  }
+}
+
 
 const deleteDocumentById = async (req, res) => {
   try {
@@ -250,5 +306,6 @@ module.exports = {
   getOwnedDocumentsById,
   getSharedDocumentsById,
   getDeletedDocumentsById,
-  filterDocumentsbyQuery
+  filterDocumentsbyQuery,
+  getActualDocumentById
 };

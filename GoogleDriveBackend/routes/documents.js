@@ -8,6 +8,8 @@ router.post("/upload", authenticate, upload.single('file'), documentsController.
 
 router.get("/:id", authenticate, documentsController.getDocumentById);
 
+router.get("/actualdoc/:id", authenticate, documentsController.getActualDocumentById);
+
 router.put("/:id", authenticate, documentsController.updateDocumentById);
 
 router.delete("/:id",authenticate,  documentsController.deleteDocumentById);
