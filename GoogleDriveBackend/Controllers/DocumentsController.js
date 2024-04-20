@@ -297,6 +297,41 @@ const filterDocumentsbyQuery = async (req, res) => {
     }
 };
 
+
+// Route handler to get total file size for a specific user
+const getTotalFileSizeForUser = async (req, res) => {
+  try {
+    const userId = req.params.id;  // Assuming userId is passed as a URL parameter
+    console.log("This is the user ID ", userId)
+    // Convert userId to an ObjectId, handling potential errors
+   
+
+    // Fetch all documents where the user is either the owner or is listed in sharedWith
+    const documents = await Document.find({
+      $or: [
+        { ownerId: userId },
+        { sharedWith: userId }
+      ]
+    });
+
+    console.log("These are the documents for and shared with user",documents)
+
+    // Sum up the file sizes and convert to MB
+    const totalSizeBytes = documents.reduce((acc, document) => acc + document.fileSize, 0);
+    const totalSizeMB = totalSizeBytes / 1048576;  // Convert bytes to MB
+
+    // Respond with the total size in MB
+    res.json({ totalSizeMB: totalSizeMB.toFixed(2) });
+  } catch (error) {
+    console.error("Error fetching documents for user:", error);
+    res.status(500).json({ message: "Internal server error." });
+  }
+};
+
+
+
+
+
 // Export the controller methods
 module.exports = {
   createDocument,
@@ -307,5 +342,6 @@ module.exports = {
   getSharedDocumentsById,
   getDeletedDocumentsById,
   filterDocumentsbyQuery,
-  getActualDocumentById
+  getActualDocumentById,
+  getTotalFileSizeForUser
 };

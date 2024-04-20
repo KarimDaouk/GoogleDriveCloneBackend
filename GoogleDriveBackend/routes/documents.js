@@ -10,9 +10,11 @@ router.get("/:id", authenticate, documentsController.getDocumentById);
 
 router.get("/actualdoc/:id", authenticate, documentsController.getActualDocumentById);
 
+router.get("/size/:id", authenticate, documentsController.getTotalFileSizeForUser);
+
 router.put("/:id", authenticate, documentsController.updateDocumentById);
 
-router.delete("/:id",authenticate,  documentsController.deleteDocumentById);
+router.delete("/trash/:id",authenticate,  documentsController.deleteDocumentById);
 
 router.get("/owned/:id", authenticate, documentsController.getOwnedDocumentsById);
 
