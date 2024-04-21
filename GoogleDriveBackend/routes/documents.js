@@ -14,7 +14,9 @@ router.get("/size/:id", authenticate, documentsController.getTotalFileSizeForUse
 
 router.put("/:id", authenticate, documentsController.updateDocumentById);
 
-router.delete("/trash/:id",authenticate,  documentsController.deleteDocumentById);
+router.delete("/delete/soft/:id",authenticate,  documentsController.softDeleteDocumentById);
+
+router.delete("/delete/hard/:id", authenticate, documentsController.hardDeleteDocumentById);
 
 router.get("/owned/:id", authenticate, documentsController.getOwnedDocumentsById);
 
