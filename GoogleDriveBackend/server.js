@@ -2,9 +2,13 @@ const express=require('express')
 const connectDB = require('./db');
 connectDB();
 
-const app = express()
+const cors = require('cors');
+const app = express();
 
+app.use(cors());
 app.use(express.json())
+
+
 
 
 
