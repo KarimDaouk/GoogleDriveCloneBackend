@@ -1,6 +1,6 @@
 const mongoose = require('mongoose');
 
-// const mongoURI = 'mongodb://localhost:27017/GoogleDrive'; 
+//const mongoURI = 'mongodb://localhost:27017/GoogleDrive'; 
 const mongoURI ='mongodb+srv://KarimDaouk:Wd03405224@googledriveclone.trdr6wx.mongodb.net/GoogleDrive?retryWrites=true&w=majority'
 
 const connectDB = async () => {

@@ -92,7 +92,7 @@ const getActualDocumentById = async (req, res) => {
 
     // Check if the document exists
     if (!document) {
-      return res.status(404).json(new ApiResponse(404, "Document not found", {}));
+      return res.status(200).json(new ApiResponse(404, "Document not found", {}));
     }
 
     // Assuming 'filePath' is a field in your document schema that holds the path to the file
@@ -102,7 +102,7 @@ const getActualDocumentById = async (req, res) => {
 
     // Check if file exists and is accessible
     if (!fs.existsSync(filePath)) {
-      return res.status(404).json(new ApiResponse(404, "File not found", {}));
+      return res.status(200).json(new ApiResponse(404, "File not found", {}));
     }
 
     // Determine the content type from the file extension
@@ -116,7 +116,7 @@ const getActualDocumentById = async (req, res) => {
     fileStream.pipe(res);
   } catch (error) {
     console.error("Error fetching document:", error);
-    res.status(500).json(new ApiResponse(500, "Internal Server Error", {}));
+    res.status(200).json(new ApiResponse(500, "Internal Server Error", {}));
   }
 };
 
@@ -135,9 +135,25 @@ function getMimeType(filePath) {
 }
 
 
-const deleteDocumentById = async (req, res) => {
+const softDeleteDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
+
+    // Check if the user owns the document or if the document is shared with the user
+    const userId = req.user.userId;
+
+    const document = await Document.findById(documentId);
+    if (!document){
+      return res
+        .status(200)
+        .json(new ApiResponse(404, "Document not found", {}));
+    }
+
+    if (document.ownerId.toString() !== userId && !document.sharedWith.includes(userId)) {
+      return res.status(200).json(
+        new ApiResponse(403, "Unauthorized: You do not have permission to delete this document", {})
+      );
+    }
 
     // Find document by ID in the database and update the deleted status and date of deletion
     const updatedDocument = await Document.findByIdAndUpdate(
@@ -151,26 +167,76 @@ const deleteDocumentById = async (req, res) => {
 
     // Check if document exists
     if (!updatedDocument) {
+      const response = new ApiResponse(404, "Document not found", {});
+      return res.status(200).json(response);
+    }
+
+    // Respond with success message
+    const response = new ApiResponse(200, "Document deleted successfully", {});
+    return res.status(200).json(response);
+  } catch (error) {
+    // Handle errors
+    console.error("Error deleting document:", error);
+    const response = new ApiResponse(500, "Internal Server Error", {});
+    res.status(200).json(response);
+  }
+};
+
+const hardDeleteDocumentById = async (req, res) => {
+  try {
+    const documentId = req.params.id;
+
+    // Check if the user owns the document or if the document is shared with the user
+    const userId = req.user.userId;
+
+    const document = await Document.findById(documentId);
+    if (!document){
       return res
-        .status(404)
-        .json({ success: false, message: "Document not found" });
+        .status(200)
+        .json(new ApiResponse(404, "Document not found", {}));
+    }
+
+    if (document.ownerId.toString() !== userId && !document.sharedWith.includes(userId)) {
+      return res.status(200).json(
+        new ApiResponse(403, "Unauthorized: You do not have permission to delete this document", {})
+      );
+    }
+    
+    // Find document by ID in the database and delete it
+    const deletedDocument = await Document.findByIdAndDelete(documentId);
+    const filePath = path.join(__dirname,'..', 'Uploads', document.fileName);
+      try {
+          fs.unlinkSync(filePath);
+          console.log(`File ${document.fileName} deleted successfully.`);
+      } catch (err) {
+          console.error(`Error deleting file ${document.fileName}:`, err);
+      }
+
+    // Check if document exists
+    if (!deletedDocument) {
+      return res
+        .status(200)
+        .json(new ApiResponse(404, "Document not found", {}));
     }
 
     // Respond with success message
     res
       .status(200)
-      .json({ success: true, message: "Document deleted successfully" });
+      .json(new ApiResponse(200, "Document deleted successfully", {}));
   } catch (error) {
     // Handle errors
     console.error("Error deleting document:", error);
-    res.status(500).json({ success: false, message: "Internal Server Error" });
+    res
+      .status(200)
+      .json(new ApiResponse(500, "Internal Server Error", {}));
   }
-};
+}
 
 const updateDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
     const { ownerId, sharedWith } = req.body;
+    console.log("owner " + ownerId + " " + typeof sharedWith)
 
     // Check if sharedWith is provided and convert strings to ObjectId
     const sharedWithIds = sharedWith.map(
@@ -183,14 +249,14 @@ const updateDocumentById = async (req, res) => {
     // Check if document exists
     if (!document) {
       return res
-        .status(404)
+        .status(200)
         .json(new ApiResponse(404, "Document not found", {}));
     }
 
     // Check if ownerId matches the owner of the document
     if (document.ownerId.toString() !== ownerId.toString()) {
       return res
-        .status(403)
+        .status(200)
         .json(
           new ApiResponse(
             403,
@@ -253,10 +319,32 @@ const getSharedDocumentsById = async (req, res) => {
 const getDeletedDocumentsById = async (req, res) => {
   try {
     const userId = req.params.id; 
+
     const deletedDocuments = await Document.find({ ownerId: userId, deleted : true });
+
+    // hard delete any documents that expired (past 30 days)
+    const documentsToDelete = deletedDocuments.filter(deletedDocument => {
+      const differenceInMilliseconds = Date.now() - deletedDocument.dateOfDeletion.getTime();
+      const differenceInDays = differenceInMilliseconds / (1000 * 3600 * 24);
+      return differenceInDays > 30;
+    });
+  
+    for (const documentToDelete of documentsToDelete) {
+      await Document.findByIdAndDelete(documentToDelete._id);
+      const filePath = path.join(__dirname,'..', 'Uploads', documentToDelete.fileName);
+      try {
+          fs.unlinkSync(filePath);
+          console.log(`File ${documentToDelete.fileName} deleted successfully.`);
+      } catch (err) {
+          console.error(`Error deleting file ${documentToDelete.fileName}:`, err);
+      }
+    }
+
+    const newDeletedDocuments = await Document.find({ ownerId: userId, deleted : true });
+    
     res
       .status(200)
-      .json(new ApiResponse(200, "Documents retrieved successfully", deletedDocuments));
+      .json(new ApiResponse(200, "Documents retrieved successfully", newDeletedDocuments));
   } catch (error) {
     console.error("Error fetching user's documents:", error);
     const response = new ApiResponse(500, "Internal Server Error", {});
@@ -324,7 +412,7 @@ const getTotalFileSizeForUser = async (req, res) => {
     res.json({ totalSizeMB: totalSizeMB.toFixed(2) });
   } catch (error) {
     console.error("Error fetching documents for user:", error);
-    res.status(500).json({ message: "Internal server error." });
+    res.status(200).json(new ApiResponse(500, "Internal Server Error", {}));
   }
 };
 
@@ -336,7 +424,8 @@ const getTotalFileSizeForUser = async (req, res) => {
 module.exports = {
   createDocument,
   getDocumentById,
-  deleteDocumentById,
+  softDeleteDocumentById,
+  hardDeleteDocumentById,
   updateDocumentById,
   getOwnedDocumentsById,
   getSharedDocumentsById,
