@@ -29,6 +29,9 @@ const createDocument = async (req, res) => {
         .json(new ApiResponse(400, "File uploads Required", {}));
     }
 
+
+
+
     const newDocument = new Document({
       ownerId: req.body.ownerId,
       title: req.file.originalname,
@@ -37,7 +40,10 @@ const createDocument = async (req, res) => {
       uploadDate: Date.now(),
       fileSize: req.file.size,
       sharedWith: [],
+      type: req.file.mimetype
     });
+
+    console.log("this is the file were saving:", newDocument)
 
     // Save the new document to the database
     await newDocument.save();
