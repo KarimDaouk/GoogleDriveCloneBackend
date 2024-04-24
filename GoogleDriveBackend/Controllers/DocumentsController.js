@@ -241,7 +241,7 @@ const hardDeleteDocumentById = async (req, res) => {
 const updateDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
-    const { ownerId, sharedWith } = req.body;
+    const { ownerId, sharedWith, starred } = req.body;
     console.log("owner " + ownerId + " " + typeof sharedWith)
 
     // Check if sharedWith is provided and convert strings to ObjectId
@@ -274,10 +274,17 @@ const updateDocumentById = async (req, res) => {
 
     // Update the sharedWith array with the converted ObjectId values
     document.sharedWith = sharedWithIds;
+    if (starred) {
+      document.starred = starred;
+    }
 
     // Save the updated document to the database
     await document.save();
 
+    // update lastModifiedDate
+    document.dateOfLastModified = new Date();
+    await document.save();
+   
     // Respond with success message
     res
       .status(200)
@@ -360,8 +367,30 @@ const getDeletedDocumentsById = async (req, res) => {
 
 const filterDocumentsbyQuery = async (req, res) => {
   try {
+
     const userId = req.params.id; 
-    const searchString = req.query.filter.toLowerCase(); 
+
+    // Type: Images, PDFs, Documents, Spreadsheets, Videos, zip, Folders
+    const type = req.query.type ? req.query.type.toLowerCase() : '';
+
+    // Includes the search string
+    const searchString = req.query.searchString ? req.query.searchString.toLowerCase() : '';
+
+    // Item name 
+    const itemName = req.query.itemName ? req.query.itemName.toLowerCase() : '';
+
+    // Location: anywhere, my drive, shared with me, more locations: Validation
+    const location = req.query.location ? req.query.location.toLowerCase() : '';
+
+    // Bin: boolean
+    const deleted = req.query.deleted ? req.query.deleted : false;
+
+    // Starred: boolean
+    const starred = req.query.starred ? req.query.starred : false;
+
+     // Owner: anyone, owned by me, not owned by me, specific person: leenelmirr@gmail.com
+     const owner = req.query.owner ? req.query.owner.toLowerCase() : '';
+
 
     // Search for documents owned by the user
     const ownedDocuments = await Document.find({ ownerId: userId });
@@ -379,6 +408,7 @@ const filterDocumentsbyQuery = async (req, res) => {
       document.title.toLowerCase().includes(searchString) 
     );
 
+    
     const filteredDocuments = filteredOwnedDocuments.concat(filteredSharedDocuments);
     res
     .status(200)
@@ -391,6 +421,118 @@ const filterDocumentsbyQuery = async (req, res) => {
     }
 };
 
+const filterDocsTrial = async (req, res) => {
+  try {
+    const userId = req.params.id; 
+
+    // Type: Images, PDFs, Documents, Spreadsheets, Videos, zip, Folders
+    const type = req.query.type ? req.query.type.toLowerCase() : '';
+    const textSearchString = req.query.textSearchString ? req.query.textSearchString.toLowerCase() : '';
+    const itemName = req.query.itemName ? req.query.itemName.toLowerCase() : '';
+    const location = req.query.location ? req.query.location.toLowerCase() : '';
+    const deleted = req.query.deleted ? req.query.deleted : false;
+    const starred = req.query.starred ? req.query.starred : false;
+    const owner = req.query.owner ? req.query.owner.toLowerCase() : '';
+
+    const pipeline = [];
+
+    // Add match stage to filter documents by type
+    if (type) {
+      if (type !== 'any')
+        pipeline.push({ $match: { type: type } });
+    }
+
+    // Add match stage to filter documents by search string
+    if (itemName) {
+      pipeline.push({ $match: { title: { $regex: itemName, $options: 'i' } } });
+    }
+
+    if (starred) {
+      pipeline.push({ $match: { starred : starred }});
+    }
+
+    if (deleted) {
+      pipeline.push({ $match: { deleted : deleted }});
+    }
+
+    // Match owner: anyone, owned by me, specific email
+    if (owner){
+      if (owner === 'anyone') {
+        // Find all documents owned by the user or shared with the user
+        pipeline.push({
+            $match: {
+                $or: [
+                    { ownerId: userId },
+                    { sharedWith: userId }
+                ]
+            }
+        });
+      } else if (owner === 'owned by me') {
+        // Find documents owned only by the user
+        pipeline.push({
+            $match: { ownerId: userId }
+        });
+      } else {
+        // Find documents owned by the specified owner and shared with the user
+        const ownerUser = await User.findOne({ email: owner });
+
+        if (!ownerUser) {
+          // Handle case where owner email is not found
+          return res.status(200).json(new ApiResponse(404, "Owner not found", {}));
+        }
+
+        const ownerId = ownerUser._id;
+        pipeline.push({
+            $match: {
+                ownerId: ownerId,
+                sharedWith: userId
+            }
+        });
+      }
+    }
+    
+    // Location: anywhere, my drive, shared with me, more locations: Validation
+    if (location){
+      if (location === 'anywhere') {
+        pipeline.push({
+          $match: {
+              $or: [
+                  { ownerId: userId },
+                  { sharedWith: userId }
+              ]
+          }
+      });
+      } else if (location === 'my drive') {
+        pipeline.push({
+          $match: {ownerId: userId }
+        });
+      } else {
+          // TODO: add folder functionality
+      }
+    }
+
+    // Execute the aggregation pipeline
+    var filteredDocuments = await Document.aggregate(pipeline);
+
+    if (textSearchString){
+      filteredDocuments = filteredDocuments.filter(document => {
+        const filePath = path.join(__dirname, '..', 'Uploads', document.fileName);
+        const fileContent = fs.readFileSync(filePath, 'utf8').toLowerCase();
+        return textSearchString && fileContent.includes(textSearchString);
+      });
+    }
+
+    // Respond with filtered documents
+    res
+    .status(200)
+    .json(new ApiResponse(200, "Documents retrieved successfully", filteredDocuments));
+
+    } catch (error) {
+      console.error("Error fetching user's documents:", error);
+      res.status(200).json(new ApiResponse(500, "Internal Server Error", {}));
+    }
+};
+  
 
 // Route handler to get total file size for a specific user
 const getTotalFileSizeForUser = async (req, res) => {
@@ -436,7 +578,8 @@ module.exports = {
   getOwnedDocumentsById,
   getSharedDocumentsById,
   getDeletedDocumentsById,
-  filterDocumentsbyQuery,
+  //filterDocumentsbyQuery,
+  filterDocsTrial,
   getActualDocumentById,
   getTotalFileSizeForUser
 };

@@ -24,6 +24,6 @@ router.get("/shared/:id", authenticate, documentsController.getSharedDocumentsBy
 
 router.get("/deleted/:id", authenticate, documentsController.getDeletedDocumentsById);
 
-router.get("/search/:id", authenticate, documentsController.filterDocumentsbyQuery);
+router.get("/search/:id", authenticate, documentsController.filterDocsTrial);
 
 module.exports = router;
