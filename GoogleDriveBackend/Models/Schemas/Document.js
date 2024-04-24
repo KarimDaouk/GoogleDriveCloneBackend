@@ -50,7 +50,8 @@ const DocumentSchema = new mongoose.Schema({
       default: false
     },
     dateOfLastModified: {
-      type: Date
+      type: Date,
+      default: Date.now
     }
   });
   
