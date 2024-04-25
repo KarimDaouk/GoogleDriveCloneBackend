@@ -55,7 +55,7 @@ const DocumentSchema = new mongoose.Schema({
     },
     refDocs : [{
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'documents',
+      ref: 'Document',
       default:[]
     }],
     parentDir : {

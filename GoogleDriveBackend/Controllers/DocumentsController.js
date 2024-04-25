@@ -13,13 +13,13 @@ const xlsx = require('xlsx');
 const createDocument = async (req, res) => {
   try {
     console.log(req.file);
-    const { ownerId } = req.body;
+    const { ownerId, parentFolderId } = req.body;
     if (!ownerId) {
       return res
         .status(200)
         .json(new ApiResponse(400, "Owner ID required", {}));
     }
-    const user = User.findById(ownerId);
+    const user = await User.findById(ownerId);
     if(!user){
       return res
       .status(200)
@@ -32,8 +32,14 @@ const createDocument = async (req, res) => {
         .json(new ApiResponse(400, "File uploads Required", {}));
     }
 
-
-
+    let folder;
+    if (parentFolderId && parentFolderId !== "base") {
+      // Check if parent folder exists
+      folder = await Document.findById(parentFolderId);
+      if (!folder) {
+        return res.status(200).json(new ApiResponse(400, "Parent folder not found", {}));
+      }
+    }
 
     const newDocument = new Document({
       ownerId: req.body.ownerId,
@@ -43,14 +49,22 @@ const createDocument = async (req, res) => {
       uploadDate: Date.now(),
       fileSize: req.file.size,
       sharedWith: [],
-      type: req.file.mimetype
+      type: req.file.mimetype,
+      parentDir: mongoose.Types.ObjectId.isValid(parentFolderId) ? parentFolderId : null
     });
+
 
     console.log("this is the file were saving:", newDocument)
 
     // Save the new document to the database
-    await newDocument.save();
+    const savedDocument = await newDocument.save();
 
+
+    if (folder) {
+      folder.refDocs.push(savedDocument._id);
+      await folder.save();
+    }
+    
     // Respond with success message
     const response = new ApiResponse(
       201,
@@ -626,7 +640,20 @@ const createFolder = async (req, res) => {
     console.log("this is the folder were saving:", newFolder)
 
     // Save the new folder to the database
-    await newFolder.save();
+    const savedFolder = await newFolder.save();
+
+    let folder;
+    if (parentFolderId && parentFolderId !== "base") {
+      // Check if parent folder exists
+      folder = await Document.findById(parentFolderId);
+      if (!folder) {
+        return res.status(200).json(new ApiResponse(400, "Parent folder not found", {}));
+      }
+    }
+    if (folder) {
+      folder.refDocs.push(savedFolder._id);
+      await folder.save();
+    }
 
     // Respond with success message
     const response = new ApiResponse(
@@ -643,6 +670,33 @@ const createFolder = async (req, res) => {
   }
 }
 
+const getFolderContentById = async (req, res) => {
+
+    try  {
+      // get the folderId from id query
+    const folderId = req.params.id;
+    const folder = await Document.findById(folderId);
+    console.log(folder)
+    if (!folder){
+      return res.status(200).json(new ApiResponse(404, "Folder not found", {}))
+    }
+
+    const folderRefs = folder.refDocs;
+    var folderContent = [];
+    for (let i = 0; i < folderRefs.length; i++) {
+      const objectIdStr = folderRefs[i].toString();
+      const doc = await Document.findById(objectIdStr);
+      folderContent.push(doc);
+    }
+
+    res.status(200).json(new ApiResponse(200, "Folder content retrieved successfully", folderContent))
+    } catch (error) {
+      console.error("Error getting folder content " + error);
+      res.status(200).json(new ApiResponse(500, "Internal Server Error", {}))
+    }
+
+}
+
 // Export the controller methods
 module.exports = {
   createDocument,
@@ -656,5 +710,6 @@ module.exports = {
   filterDocsTrial,
   getActualDocumentById,
   getTotalFileSizeForUser,
-  createFolder
+  createFolder,
+  getFolderContentById
 };
