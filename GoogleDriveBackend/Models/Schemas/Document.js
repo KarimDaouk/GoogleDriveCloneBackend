@@ -52,6 +52,16 @@ const DocumentSchema = new mongoose.Schema({
     dateOfLastModified: {
       type: Date,
       default: Date.now
+    },
+    refDocs : [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'documents',
+      default:[]
+    }],
+    parentDir : {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'documents',
+      default : null
     }
   });
   
