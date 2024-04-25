@@ -13,13 +13,13 @@ const xlsx = require('xlsx');
 const createDocument = async (req, res) => {
   try {
     console.log(req.file);
-    const { ownerId } = req.body;
+    const { ownerId, parentFolderId } = req.body;
     if (!ownerId) {
       return res
         .status(200)
         .json(new ApiResponse(400, "Owner ID required", {}));
     }
-    const user = User.findById(ownerId);
+    const user = await User.findById(ownerId);
     if(!user){
       return res
       .status(200)
@@ -32,8 +32,14 @@ const createDocument = async (req, res) => {
         .json(new ApiResponse(400, "File uploads Required", {}));
     }
 
-
-
+    let folder;
+    if (parentFolderId && parentFolderId !== "base") {
+      // Check if parent folder exists
+      folder = await Document.findById(parentFolderId);
+      if (!folder) {
+        return res.status(200).json(new ApiResponse(400, "Parent folder not found", {}));
+      }
+    }
 
     const newDocument = new Document({
       ownerId: req.body.ownerId,
@@ -43,14 +49,22 @@ const createDocument = async (req, res) => {
       uploadDate: Date.now(),
       fileSize: req.file.size,
       sharedWith: [],
-      type: req.file.mimetype
+      type: req.file.mimetype,
+      parentDir: mongoose.Types.ObjectId.isValid(parentFolderId) ? parentFolderId : null
     });
+
 
     console.log("this is the file were saving:", newDocument)
 
     // Save the new document to the database
-    await newDocument.save();
+    const savedDocument = await newDocument.save();
 
+
+    if (folder) {
+      folder.refDocs.push(savedDocument._id);
+      await folder.save();
+    }
+    
     // Respond with success message
     const response = new ApiResponse(
       201,
