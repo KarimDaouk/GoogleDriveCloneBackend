@@ -5,6 +5,9 @@ const mongoose = require("mongoose");
 const fs = require('fs');
 const path = require('path');
 const ObjectId = mongoose.Types.ObjectId;
+const mammoth = require('mammoth');
+const pdf = require('pdf-parse');
+const xlsx = require('xlsx');
 
 // Controller methods for managing documents
 const createDocument = async (req, res) => {
@@ -241,7 +244,7 @@ const hardDeleteDocumentById = async (req, res) => {
 const updateDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
-    const { ownerId, sharedWith } = req.body;
+    const { ownerId, sharedWith, starred } = req.body;
     console.log("owner " + ownerId + " " + typeof sharedWith)
 
     // Check if sharedWith is provided and convert strings to ObjectId
@@ -274,10 +277,17 @@ const updateDocumentById = async (req, res) => {
 
     // Update the sharedWith array with the converted ObjectId values
     document.sharedWith = sharedWithIds;
+    if (starred) {
+      document.starred = starred;
+    }
 
     // Save the updated document to the database
     await document.save();
 
+    // update lastModifiedDate
+    document.dateOfLastModified = new Date();
+    await document.save();
+   
     // Respond with success message
     res
       .status(200)
@@ -358,39 +368,160 @@ const getDeletedDocumentsById = async (req, res) => {
   }
 }
 
-const filterDocumentsbyQuery = async (req, res) => {
+const filterDocsTrial = async (req, res) => {
   try {
-    const userId = req.params.id; 
-    const searchString = req.query.filter.toLowerCase(); 
+    const userId = new mongoose.Types.ObjectId(req.params.id); 
 
-    // Search for documents owned by the user
-    const ownedDocuments = await Document.find({ ownerId: userId });
+    // Type: Images, PDFs, Documents, Spreadsheets, Videos, zip, Folders
+    const type = req.query.type ? req.query.type.toLowerCase() : '';
+    console.log("type: " + type) // done
+    const textSearchString = req.query.textSearchString ? req.query.textSearchString.toLowerCase() : '';
+    console.log("tss: " + textSearchString) // done
+    const itemName = req.query.itemName ? req.query.itemName.toLowerCase() : '';
+    console.log("in: " + itemName) // done
+    const location = req.query.location ? req.query.location.toLowerCase() : '';
+    console.log("location: " + location) // done
+    const deleted = req.query.deleted ? req.query.deleted : false;
+    console.log("deleted: " + deleted) // done
+    const starred = req.query.starred ? req.query.starred : false;
+    console.log("starred: " + starred) // done
+    const owner = req.query.owner ? req.query.owner.toLowerCase() : '';
+    console.log("owner: " + owner) // done
+   
+    const pipeline = [];
 
-    // Search for documents shared with the user
-    const sharedDocuments = await Document.find({ sharedWith: userId });
+    // Add match stage to filter documents by type
+    if (type) {
+      if (type !== 'any')
+        pipeline.push({ $match: { type: type } });
+    }
 
-    // Filter owned documents containing the search query
-    const filteredOwnedDocuments = ownedDocuments.filter(document =>
-      document.title.toLowerCase().includes(searchString)
-    );
+    // Add match stage to filter documents by search string
+    if (itemName) {
+      pipeline.push({ $match: { title: { $regex: itemName, $options: 'i' } } });
+    }
 
-    // Filter shared documents containing the search query
-    const filteredSharedDocuments = sharedDocuments.filter(document =>
-      document.title.toLowerCase().includes(searchString) 
-    );
+    if (starred)
+    pipeline.push({ $match: { starred : true}});
 
-    const filteredDocuments = filteredOwnedDocuments.concat(filteredSharedDocuments);
+    pipeline.push({ $match: { deleted : deleted==='true' ? true : false}});
+
+    // Match owner: anyone, owned by me, specific email
+    if (owner){
+      if (owner === 'anyone') {
+        // Find all documents owned by the user or shared with the user
+        pipeline.push({
+            $match: {
+                $or: [
+                    { ownerId: userId },
+                    { sharedWith: userId }
+                ]
+            }
+        });
+      } else if (owner === 'owned by me') {
+        if (location && location === "shared with me"){
+          return res.status(200).json(new ApiResponse(200, "Documents retrieved successfully", {}));
+        } 
+        // Find documents owned only by the user
+        pipeline.push({
+            $match: { ownerId: userId }
+        });
+      } else if (owner === 'not owned by me') {
+        if (location && location === 'my drive'){
+          return res.status(200).json(new ApiResponse(200, "Documents retrieved successfully", {}));
+        }
+        pipeline.push({
+          $match: { sharedWith: userId }
+      });
+      } else {
+        if (location && location === 'my drive'){
+          return res.status(200).json(new ApiResponse(200, "Documents retrieved successfully", {}));
+        }
+        // Find documents owned by the specified owner and shared with the user
+        const ownerUser = await User.findOne({ email: owner });
+
+        if (!ownerUser) {
+          // Handle case where owner email is not found
+          return res.status(200).json(new ApiResponse(404, "Owner not found", {}));
+        }
+
+        const ownerId = ownerUser._id;
+        pipeline.push({
+            $match: {
+                ownerId: ownerId,
+                sharedWith: userId
+            }
+        });
+      }
+    } else {
+        pipeline.push({
+          $match: {
+              $or: [
+                  { ownerId: userId },
+                  { sharedWith: userId }
+              ]
+          }
+      }); 
+    }
+    
+    // Location: anywhere, my drive, shared with me, more locations: Validation
+    if (location){
+      if (location === 'anywhere') {
+        pipeline.push({
+          $match: {
+              $or: [
+                  { ownerId: userId },
+                  { sharedWith: userId }
+              ]
+          }
+      });
+      } else if (location === 'my drive') {
+        pipeline.push({
+          $match: {ownerId: userId }
+        });
+      } else if (location === 'shared with me') {
+        pipeline.push({
+          $match: {sharedWith : userId}
+        })
+      } else {
+          // TODO: add folder functionality
+      }
+    }
+
+    // Execute the aggregation pipeline
+    var filteredDocuments = await Document.aggregate(pipeline);
+
+    if (textSearchString) {
+      // Use Promise.all() to asynchronously process each document
+      filteredDocuments = await Promise.all(filteredDocuments.map(async (document) => {
+          console.log("type " + document.type);
+          // Await the result of checkTextInDocument function
+          const found = await checkTextInDocument(
+              path.join(__dirname, '..', 'Uploads', document.fileName),
+              document.type,
+              textSearchString
+          );
+          console.log("found " + found);
+          return found ? document : null; // Return the document if text is found, otherwise null
+      }));
+  
+      // Filter out null values (documents where text was not found)
+      filteredDocuments = filteredDocuments.filter(doc => doc !== null);
+  }
+  
+
+    console.log(filteredDocuments.length)
+    // Respond with filtered documents
     res
     .status(200)
     .json(new ApiResponse(200, "Documents retrieved successfully", filteredDocuments));
 
     } catch (error) {
-    console.error("Error fetching user's documents:", error);
-    const response = new ApiResponse(500, "Internal Server Error", {});
-    res.status(200).json(response);
+      console.error("Error fetching user's documents:", error);
+      res.status(200).json(new ApiResponse(500, "Internal Server Error", {}));
     }
 };
-
+  
 
 // Route handler to get total file size for a specific user
 const getTotalFileSizeForUser = async (req, res) => {
@@ -423,7 +554,41 @@ const getTotalFileSizeForUser = async (req, res) => {
 };
 
 
+async function checkTextInDocument(filePath, documentType, text) {
+  try {
+      let textContent = '';
 
+      if (documentType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+          // Word Document (.docx)
+          const { value } = await mammoth.extractRawText({ path: filePath });
+          textContent = value;
+      } else if (documentType === 'text/plain') {
+          // Plain Text (.txt)
+          textContent = fs.readFileSync(filePath, 'utf8');
+      } else if (documentType === 'application/pdf') {
+          // PDF File (.pdf)
+          const dataBuffer = fs.readFileSync(filePath);
+          const data = await pdf(dataBuffer);
+          console.log("DATA OF PDF:"+data.text )
+          textContent = data.text;
+      } else if (documentType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') {
+          // Excel Spreadsheet (.xlsx)
+          const workbook = xlsx.readFile(filePath);
+          const sheetName = workbook.SheetNames[0]; // read only from the first sheet
+          const worksheet = workbook.Sheets[sheetName];
+          textContent = xlsx.utils.sheet_to_csv(worksheet); // Change this to fit your requirements
+      } else {
+          return false;
+      }
+
+      console.log("worked" + " " + filePath)
+      // Check if the text content includes the specified text
+      return textContent.toLowerCase().includes(text.toLowerCase());
+  } catch (error) {
+      console.error('Error reading document:', error);
+      throw error;
+  }
+}
 
 
 // Export the controller methods
@@ -436,7 +601,7 @@ module.exports = {
   getOwnedDocumentsById,
   getSharedDocumentsById,
   getDeletedDocumentsById,
-  filterDocumentsbyQuery,
+  filterDocsTrial,
   getActualDocumentById,
   getTotalFileSizeForUser
 };

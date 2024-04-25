@@ -44,6 +44,14 @@ const DocumentSchema = new mongoose.Schema({
     },
     dateOfDeletion: {
       type: Date
+    },
+    starred: {
+      type: Boolean,
+      default: false
+    },
+    dateOfLastModified: {
+      type: Date,
+      default: Date.now
     }
   });
   
