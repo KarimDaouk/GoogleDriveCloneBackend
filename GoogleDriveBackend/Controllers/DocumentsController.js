@@ -590,6 +590,58 @@ async function checkTextInDocument(filePath, documentType, text) {
   }
 }
 
+const createFolder = async (req, res) => {
+  try {
+   
+    const { ownerId, folderTitle, parentFolderId } = req.body;
+    
+    if (!ownerId) {
+      return res
+        .status(200)
+        .json(new ApiResponse(400, "Owner ID required", {}));
+    }
+    const user = User.findById(ownerId);
+    if(!user){
+      return res
+      .status(200)
+      .json(new ApiResponse(400, "User not Found in Database!", {}));
+    }
+
+    const folderName = Date.now()+"";
+    const folderPath = "/"+ (mongoose.Types.ObjectId.isValid(parentFolderId) ? (parentFolderId+""):("base"))+"/"+folderName;
+
+    const newFolder = new Document({
+      ownerId: ownerId,
+      title: folderTitle,
+      fileName: folderName,
+      filePath: folderPath,
+      uploadDate: Date.now(),
+      fileSize: 0,
+      sharedWith: [],
+      refDocs: [],
+      type: "folder",
+      parentDir : mongoose.Types.ObjectId.isValid(parentFolderId) ? parentFolderId : null
+    });
+
+    console.log("this is the folder were saving:", newFolder)
+
+    // Save the new folder to the database
+    await newFolder.save();
+
+    // Respond with success message
+    const response = new ApiResponse(
+      201,
+      "Folder created successfully",
+      newFolder
+    );
+    res.status(201).json(response);
+  } catch (error) {
+    // Handle errors
+    console.error("Error creating folder:", error);
+    const response = new ApiResponse(500, "Internal Server Error", {});
+    res.status(200).json(response);
+  }
+}
 
 // Export the controller methods
 module.exports = {
@@ -603,5 +655,6 @@ module.exports = {
   getDeletedDocumentsById,
   filterDocsTrial,
   getActualDocumentById,
-  getTotalFileSizeForUser
+  getTotalFileSizeForUser,
+  createFolder
 };
