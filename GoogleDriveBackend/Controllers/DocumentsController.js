@@ -172,13 +172,16 @@ const softDeleteDocumentById = async (req, res) => {
         .json(new ApiResponse(404, "Document not found", {}));
     }
 
+    //If we dont own the document:
     if (document.ownerId.toString() !== userId && !document.sharedWith.includes(userId)) {
       return res.status(200).json(
         new ApiResponse(403, "Unauthorized: You do not have permission to delete this document", {})
       );
     }
 
-    // Find document by ID in the database and update the deleted status and date of deletion
+    // Find document by ID in the database and update the deleted status and date of deletion:
+    // IN CASE OF NORMAL DOCUMENT NOT FILE:
+
     const updatedDocument = await Document.findByIdAndUpdate(
       documentId,
       {
@@ -187,13 +190,27 @@ const softDeleteDocumentById = async (req, res) => {
       },
       { new: true }
     );
-
-    // Check if document exists
-    if (!updatedDocument) {
-      const response = new ApiResponse(404, "Document not found", {});
-      return res.status(200).json(response);
+    if (updatedDocument && updatedDocument.type === "file" && updatedDocument.refDocs) {
+      const refDocsIds = updatedDocument.refDocs;
+      const updateResult = await Document.updateMany(
+        { _id: { $in: refDocsIds } },
+        { $set: { deleted: true, dateOfDeletion: new Date() } }
+      );
+      if (!updatedDocument || !updateResult ) {
+        const response = new ApiResponse(404, "Document not found", {});
+        return res.status(200).json(response);
+      }
+      const parentId= updatedDocument.parentDir;
+      if(parentId!=null){
+      const updatedParentDoc = await Document.findByIdAndUpdate(
+        parentId,
+        { $pull: { sharedWith: updatedDocument.id } }, // Remove Doc ID from sharedWith array
+        { new: true } // Returns the updated document
+      );
+    }
     }
 
+  
     // Respond with success message
     const response = new ApiResponse(200, "Document deleted successfully", {});
     return res.status(200).json(response);
@@ -227,6 +244,7 @@ const hardDeleteDocumentById = async (req, res) => {
     
     // Find document by ID in the database and delete it
     const deletedDocument = await Document.findByIdAndDelete(documentId);
+    if(deletedDocument.type!="file"){
     const filePath = path.join(__dirname,'..', 'Uploads', document.fileName);
       try {
           fs.unlinkSync(filePath);
@@ -234,6 +252,21 @@ const hardDeleteDocumentById = async (req, res) => {
       } catch (err) {
           console.error(`Error deleting file ${document.fileName}:`, err);
       }
+    }
+    if(deletedDocument.type=="file"){
+      const refDocsIds = deletedDocument.refDocs;
+       const referencedDocuments = await Document.find({ _id: { $in: refDocsIds } });
+       for (let doc of referencedDocuments) {
+        await Document.findByIdAndDelete(doc._id); // Deleting the document from the database
+        const filePath = path.join(__dirname,'..', 'Uploads', document.fileName);
+        try {
+            fs.unlinkSync(filePath);
+            console.log(`File ${doc.fileName} deleted successfully.`);
+        } catch (err) {
+            console.error(`Error deleting file ${doc.fileName}:`, err);
+        }
+      }
+    }
 
     // Check if document exists
     if (!deletedDocument) {
