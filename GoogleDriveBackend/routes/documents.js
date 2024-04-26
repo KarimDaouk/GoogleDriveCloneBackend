@@ -32,7 +32,6 @@ router.put("/owned/move/:id", authenticate, documentsController.relocateDocument
 router.get("/deleted/:id", authenticate, documentsController.getDeletedDocumentsById);
 //router.get("/deleted/folder/:id", authenticate, documentsController.getDeletedFolderContent)
 
-// todo: change the filtered to display first level only
 router.get("/search/:id", authenticate, documentsController.filterDocsTrial);
 
 module.exports = router;
