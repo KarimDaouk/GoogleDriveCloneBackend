@@ -34,4 +34,6 @@ router.get("/deleted/:id", authenticate, documentsController.getDeletedDocuments
 
 router.get("/search/:id", authenticate, documentsController.filterDocsTrial);
 
+router.get("/download/:id", authenticate, documentsController.downloadDocument);
+
 module.exports = router;

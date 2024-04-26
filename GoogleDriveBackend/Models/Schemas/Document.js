@@ -62,6 +62,10 @@ const DocumentSchema = new mongoose.Schema({
       type: mongoose.Schema.Types.ObjectId,
       ref: 'documents',
       default : null
+    },
+    description : {
+      type: String,
+      default: "N/A"
     }
   });
   

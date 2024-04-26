@@ -326,8 +326,8 @@ const updateDocumentById = async (req, res) => {
     }
 
     // if starred included
-    if (starred) {
-      document.starred = starred;
+    if (starred !== null) {
+      document.starred = (starred === true);
     }
 
     // if name  included
@@ -655,7 +655,7 @@ async function checkTextInDocument(filePath, documentType, text) {
 const createFolder = async (req, res) => {
   try {
    
-    const { ownerId, folderTitle, parentFolderId } = req.body;
+    const { ownerId, folderTitle, parentFolderId, description } = req.body;
     
     if (!ownerId) {
       return res
@@ -796,6 +796,39 @@ const relocateDocumentById = async (req, res) => {
 
 }
 
+const downloadDocument = async (req, res) => {
+ 
+  try {
+    const documentId = req.params.id;
+    console.log(documentId);
+    // Fetch the document details from the database (e.g., MongoDB)
+    const document = await Document.findById(new mongoose.Types.ObjectId(documentId));
+
+    if (!document) {
+      return res.status(200).json(new ApiResponse(404, "Document not found", {}))
+    }
+
+    // Construct the path to the document file in the uploads folder
+    const filePath = path.join(__dirname,'..', 'Uploads', document.fileName);
+
+    // Check if the file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(200).json(new ApiResponse(404, "Uploaded document not found", {}))
+    }
+
+    // Set the appropriate headers for the file download
+    res.setHeader('Content-Disposition', `attachment; filename="${document.fileName}"`);
+    res.setHeader('Content-Type', document.type);
+
+    // Send the file as a response
+    fs.createReadStream(filePath).pipe(res);
+  } catch (error) {
+    console.error('Error downloading document:', error);
+
+    res.status(200).json(new ApiResponse(500, "Internal Server Error", {}))
+  }
+}
+
 // Export the controller methods
 module.exports = {
   createDocument,
@@ -811,5 +844,6 @@ module.exports = {
   getTotalFileSizeForUser,
   createFolder,
   getFolderContentById,
-  relocateDocumentById
+  relocateDocumentById,
+  downloadDocument
 };
