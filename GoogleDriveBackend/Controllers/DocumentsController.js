@@ -291,13 +291,8 @@ const hardDeleteDocumentById = async (req, res) => {
 const updateDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
-    const { ownerId, sharedWith, starred } = req.body;
+    const { ownerId, sharedWith, starred, docName } = req.body;
     console.log("owner " + ownerId + " " + typeof sharedWith)
-
-    // Check if sharedWith is provided and convert strings to ObjectId
-    const sharedWithIds = sharedWith.map(
-      (userId) => new mongoose.Types.ObjectId(userId)
-    );
 
     // Find document by ID in the database
     const document = await Document.findById(documentId);
@@ -322,10 +317,23 @@ const updateDocumentById = async (req, res) => {
         );
     }
 
-    // Update the sharedWith array with the converted ObjectId values
-    document.sharedWith = sharedWithIds;
+    // if sharedWith inclued
+    if (sharedWith){
+      const sharedWithIds = sharedWith.map(
+        (userId) => new mongoose.Types.ObjectId(userId)
+      );
+      document.sharedWith = sharedWithIds;
+    }
+
+    // if starred included
     if (starred) {
       document.starred = starred;
+    }
+
+    // if name  included
+    if (docName){
+      const documentName = document.title;
+      document.title = docName + documentName.includes(".") ? ("." + documentName.split('.')[1]) : "";
     }
 
     // Save the updated document to the database
@@ -351,9 +359,10 @@ const getOwnedDocumentsById = async (req, res) => {
   try {
     const userId = req.params.id; 
     const userDocuments = await Document.find({ ownerId: userId });
+    const parentUserDocuments = userDocuments.filter(userDocument => userDocument.parentDir === null);
     res
       .status(200)
-      .json(new ApiResponse(200, "Documents retrieved successfully", userDocuments));
+      .json(new ApiResponse(200, "Documents retrieved successfully", parentUserDocuments));
   } catch (error) {
     console.error("Error fetching user's documents:", error);
     const response = new ApiResponse(500, "Internal Server Error", {});
@@ -366,9 +375,10 @@ const getSharedDocumentsById = async (req, res) => {
   try {
     const userId = req.params.id; 
     const sharedDocuments = await Document.find({ sharedWith: userId });
+    const parentSharedDocuments = sharedDocuments.filter(sharedDocument => sharedDocument.parentDir === null);
     res
       .status(200)
-      .json(new ApiResponse(200, "Shared documents retrieved successfully", sharedDocuments));
+      .json(new ApiResponse(200, "Shared documents retrieved successfully", parentSharedDocuments));
   } catch (error) {
       console.error("Error fetching shared documents:", error);
       const response = new ApiResponse(500, "Internal Server Error", {});
@@ -434,7 +444,7 @@ const filterDocsTrial = async (req, res) => {
     console.log("starred: " + starred) // done
     const owner = req.query.owner ? req.query.owner.toLowerCase() : '';
     console.log("owner: " + owner) // done
-   
+
     const pipeline = [];
 
     // Add match stage to filter documents by type
@@ -448,8 +458,9 @@ const filterDocsTrial = async (req, res) => {
       pipeline.push({ $match: { title: { $regex: itemName, $options: 'i' } } });
     }
 
-    if (starred)
+    if (starred){
     pipeline.push({ $match: { starred : true}});
+  }
 
     pipeline.push({ $match: { deleted : deleted==='true' ? true : false}});
 
@@ -530,13 +541,17 @@ const filterDocsTrial = async (req, res) => {
         pipeline.push({
           $match: {sharedWith : userId}
         })
-      } else {
-          // TODO: add folder functionality
+      } else { // more locations
+          const parentFolderId = location;
+          pipeline.push({
+            $match: {parentDir : new mongoose.Types.ObjectId(location)}
+          })
       }
     }
 
     // Execute the aggregation pipeline
     var filteredDocuments = await Document.aggregate(pipeline);
+
 
     if (textSearchString) {
       // Use Promise.all() to asynchronously process each document
@@ -722,11 +737,62 @@ const getFolderContentById = async (req, res) => {
       folderContent.push(doc);
     }
 
-    res.status(200).json(new ApiResponse(200, "Folder content retrieved successfully", folderContent))
+    const response = {
+      folder: folder,
+      content: folderContent
+    }
+
+    res.status(200).json(new ApiResponse(200, "Folder content retrieved successfully", response))
     } catch (error) {
       console.error("Error getting folder content " + error);
       res.status(200).json(new ApiResponse(500, "Internal Server Error", {}))
     }
+
+}
+
+const relocateDocumentById = async (req, res) => {
+  
+  try  {
+    // get the the doc id from id query
+  const documentId = req.params.id;
+  const {newFolderId, ownerId } = req.body;
+  console.log("document bodies " + newFolderId + " " + ownerId)
+  const document = await Document.findById(documentId);
+  if (!document){
+    return res.status(200).json(new ApiResponse(404, "Document being relocated not found", {}))
+  }
+
+  // change old parent
+  const oldParentId = document.parentDir;
+  if (oldParentId) {
+    const oldFolder = await Document.findById(oldParentId);
+    if (!oldFolder || oldFolder.type !== 'folder'){
+      return res.status(200).json(new ApiResponse(404, "Old Parent Folder not found", {}))
+    }
+    oldFolder.refDocs = oldFolder.refDocs.filter(refDocId => refDocId.toString() !== documentId);
+    await oldFolder.save();
+  }
+
+  // change new parent to base or new folder 
+  console.log("new " + newFolderId);
+  if (newFolderId) {
+    const newFolder = await Document.findById(newFolderId);
+    if (!newFolder){
+      return res.status(200).json(new ApiResponse(404, "New Parent Folder not found", {}))
+    }
+    newFolder.refDocs.push(documentId);
+    document.parentDir = newFolderId;
+    await newFolder.save();
+  } else {
+    document.parentDir = null;
+  }
+
+  await document.save();
+  res.status(200).json(new ApiResponse(200, "Document path updated successfully", {}))
+  } catch (error) {
+    console.error("Error updating document path: " + error);
+    res.status(200).json(new ApiResponse(500, "Internal Server Error", {}))
+  }
 
 }
 
@@ -744,5 +810,6 @@ module.exports = {
   getActualDocumentById,
   getTotalFileSizeForUser,
   createFolder,
-  getFolderContentById
+  getFolderContentById,
+  relocateDocumentById
 };
