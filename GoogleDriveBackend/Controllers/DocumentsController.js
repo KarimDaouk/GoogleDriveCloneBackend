@@ -704,7 +704,12 @@ const getFolderContentById = async (req, res) => {
       folderContent.push(doc);
     }
 
-    res.status(200).json(new ApiResponse(200, "Folder content retrieved successfully", folderContent))
+    const response = {
+      folder: folder,
+      content: folderContent
+    }
+
+    res.status(200).json(new ApiResponse(200, "Folder content retrieved successfully", response))
     } catch (error) {
       console.error("Error getting folder content " + error);
       res.status(200).json(new ApiResponse(500, "Internal Server Error", {}))
