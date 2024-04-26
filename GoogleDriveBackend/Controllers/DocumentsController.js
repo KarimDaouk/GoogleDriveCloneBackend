@@ -411,7 +411,7 @@ const filterDocsTrial = async (req, res) => {
     console.log("starred: " + starred) // done
     const owner = req.query.owner ? req.query.owner.toLowerCase() : '';
     console.log("owner: " + owner) // done
-   
+
     const pipeline = [];
 
     // Add match stage to filter documents by type
@@ -425,8 +425,9 @@ const filterDocsTrial = async (req, res) => {
       pipeline.push({ $match: { title: { $regex: itemName, $options: 'i' } } });
     }
 
-    if (starred)
+    if (starred){
     pipeline.push({ $match: { starred : true}});
+  }
 
     pipeline.push({ $match: { deleted : deleted==='true' ? true : false}});
 
@@ -507,13 +508,17 @@ const filterDocsTrial = async (req, res) => {
         pipeline.push({
           $match: {sharedWith : userId}
         })
-      } else {
-          // TODO: add folder functionality
+      } else { // more locations
+          const parentFolderId = location;
+          pipeline.push({
+            $match: {parentDir : new mongoose.Types.ObjectId(location)}
+          })
       }
     }
 
     // Execute the aggregation pipeline
     var filteredDocuments = await Document.aggregate(pipeline);
+
 
     if (textSearchString) {
       // Use Promise.all() to asynchronously process each document
