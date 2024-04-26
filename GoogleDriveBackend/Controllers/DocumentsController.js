@@ -707,6 +707,52 @@ const getFolderContentById = async (req, res) => {
 
 }
 
+const relocateDocumentById = async (req, res) => {
+  
+  try  {
+    // get the the doc id from id query
+  const documentId = req.params.id;
+  const {newFolderId, ownerId } = req.body;
+  console.log("document bodies " + newFolderId + " " + ownerId)
+  const document = await Document.findById(documentId);
+  if (!document){
+    return res.status(200).json(new ApiResponse(404, "Document being relocated not found", {}))
+  }
+
+  // change old parent
+  const oldParentId = document.parentDir;
+  if (oldParentId) {
+    const oldFolder = await Document.findById(oldParentId);
+    if (!oldFolder || oldFolder.type !== 'folder'){
+      return res.status(200).json(new ApiResponse(404, "Old Parent Folder not found", {}))
+    }
+    oldFolder.refDocs = oldFolder.refDocs.filter(refDocId => refDocId.toString() !== documentId);
+    await oldFolder.save();
+  }
+
+  // change new parent to base or new folder 
+  console.log("new " + newFolderId);
+  if (newFolderId) {
+    const newFolder = await Document.findById(newFolderId);
+    if (!newFolder){
+      return res.status(200).json(new ApiResponse(404, "New Parent Folder not found", {}))
+    }
+    newFolder.refDocs.push(documentId);
+    document.parentDir = newFolderId;
+    await newFolder.save();
+  } else {
+    document.parentDir = null;
+  }
+
+  await document.save();
+  res.status(200).json(new ApiResponse(200, "Document path updated successfully", {}))
+  } catch (error) {
+    console.error("Error updating document path: " + error);
+    res.status(200).json(new ApiResponse(500, "Internal Server Error", {}))
+  }
+
+}
+
 // Export the controller methods
 module.exports = {
   createDocument,
@@ -721,5 +767,6 @@ module.exports = {
   getActualDocumentById,
   getTotalFileSizeForUser,
   createFolder,
-  getFolderContentById
+  getFolderContentById,
+  relocateDocumentById
 };

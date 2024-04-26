@@ -8,7 +8,6 @@ router.post("/upload", authenticate, upload.single('file'), documentsController.
 
 router.post("/owned/folder", authenticate, documentsController.createFolder);
 
-// todo: get specific folder content
 router.get("/folder/:id", authenticate, documentsController.getFolderContentById);
 
 router.get("/:id", authenticate, documentsController.getDocumentById);
@@ -27,7 +26,7 @@ router.get("/owned/:id", authenticate, documentsController.getOwnedDocumentsById
 
 router.get("/shared/:id", authenticate, documentsController.getSharedDocumentsById);
 
-// todo: change the location of the file/folder
+router.put("/owned/move/:id", authenticate, documentsController.relocateDocumentById);
 
 // todo: display only those with null parentDir
 router.get("/deleted/:id", authenticate, documentsController.getDeletedDocumentsById);
