@@ -413,7 +413,7 @@ const getDeletedDocumentsById = async (req, res) => {
       }
     }
 
-    const newDeletedDocuments = await Document.find({ ownerId: userId, deleted : true });
+    const newDeletedDocuments = await Document.find({ ownerId: userId, deleted : true , parentDir:null});
     
     res
       .status(200)
