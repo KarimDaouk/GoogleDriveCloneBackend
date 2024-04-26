@@ -258,13 +258,8 @@ const hardDeleteDocumentById = async (req, res) => {
 const updateDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
-    const { ownerId, sharedWith, starred } = req.body;
+    const { ownerId, sharedWith, starred, docName } = req.body;
     console.log("owner " + ownerId + " " + typeof sharedWith)
-
-    // Check if sharedWith is provided and convert strings to ObjectId
-    const sharedWithIds = sharedWith.map(
-      (userId) => new mongoose.Types.ObjectId(userId)
-    );
 
     // Find document by ID in the database
     const document = await Document.findById(documentId);
@@ -289,10 +284,23 @@ const updateDocumentById = async (req, res) => {
         );
     }
 
-    // Update the sharedWith array with the converted ObjectId values
-    document.sharedWith = sharedWithIds;
+    // if sharedWith inclued
+    if (sharedWith){
+      const sharedWithIds = sharedWith.map(
+        (userId) => new mongoose.Types.ObjectId(userId)
+      );
+      document.sharedWith = sharedWithIds;
+    }
+
+    // if starred included
     if (starred) {
       document.starred = starred;
+    }
+
+    // if name  included
+    if (docName){
+      const documentName = document.title;
+      document.title = docName + documentName.includes(".") ? ("." + documentName.split('.')[1]) : "";
     }
 
     // Save the updated document to the database
@@ -318,9 +326,10 @@ const getOwnedDocumentsById = async (req, res) => {
   try {
     const userId = req.params.id; 
     const userDocuments = await Document.find({ ownerId: userId });
+    const parentUserDocuments = userDocuments.filter(userDocument => userDocument.parentDir === null);
     res
       .status(200)
-      .json(new ApiResponse(200, "Documents retrieved successfully", userDocuments));
+      .json(new ApiResponse(200, "Documents retrieved successfully", parentUserDocuments));
   } catch (error) {
     console.error("Error fetching user's documents:", error);
     const response = new ApiResponse(500, "Internal Server Error", {});
@@ -333,9 +342,10 @@ const getSharedDocumentsById = async (req, res) => {
   try {
     const userId = req.params.id; 
     const sharedDocuments = await Document.find({ sharedWith: userId });
+    const parentSharedDocuments = sharedDocuments.filter(sharedDocument => sharedDocument.parentDir === null);
     res
       .status(200)
-      .json(new ApiResponse(200, "Shared documents retrieved successfully", sharedDocuments));
+      .json(new ApiResponse(200, "Shared documents retrieved successfully", parentSharedDocuments));
   } catch (error) {
       console.error("Error fetching shared documents:", error);
       const response = new ApiResponse(500, "Internal Server Error", {});
