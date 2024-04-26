@@ -36,4 +36,6 @@ router.get("/search/:id", authenticate, documentsController.filterDocsTrial);
 
 router.get("/download/:id", authenticate, documentsController.downloadDocument);
 
+router.get("/starred/:id", authenticate, documentsController.getStarredDocumentById);
+
 module.exports = router;

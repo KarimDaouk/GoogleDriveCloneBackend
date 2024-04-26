@@ -829,6 +829,28 @@ const downloadDocument = async (req, res) => {
   }
 }
 
+const getStarredDocumentById = async (req, res) => {
+  try {
+    const userId = req.params.id; 
+
+    const userOwnedDocuments = await Document.find({ ownerId: userId, starred: true });
+    const parentUserDocuments = userOwnedDocuments.filter(userDocument => userDocument.parentDir === null);
+
+    const sharedDocuments = await Document.find({ sharedWith: userId, starred: true });
+    const parentSharedDocuments = sharedDocuments.filter(sharedDocument => sharedDocument.parentDir === null);
+
+    const starredDocuments = [...parentUserDocuments, ...parentSharedDocuments];
+
+    // Send response with the list of starred documents
+    res.status(200).json(new ApiResponse(200, "Starred documents retrieved successfully", starredDocuments));
+  } catch (error) {
+    console.error("Error fetching starred documents:", error);
+    const response = new ApiResponse(500, "Internal Server Error", {});
+    res.status(200).json(response);
+  }
+}
+
+
 // Export the controller methods
 module.exports = {
   createDocument,
@@ -845,5 +867,6 @@ module.exports = {
   createFolder,
   getFolderContentById,
   relocateDocumentById,
-  downloadDocument
+  downloadDocument,
+  getStarredDocumentById
 };
