@@ -327,8 +327,8 @@ const hardDeleteDocumentById = async (req, res) => {
 const updateDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
-    const { ownerId, sharedWith, starred, docName } = req.body;
-    console.log("owner " + ownerId + " " + typeof sharedWith)
+    const { ownerId, sharedWith, starred, docName, description} = req.body;
+    console.log("owner " + ownerId + " " + typeof sharedWith + " " + starred)
 
     // Find document by ID in the database
     const document = await Document.findById(documentId);
@@ -362,7 +362,7 @@ const updateDocumentById = async (req, res) => {
     }
 
     // if starred included
-    if (starred !== null) {
+    if (typeof starred !== 'undefined') {
       document.starred = (starred === true);
     }
 
@@ -374,6 +374,10 @@ const updateDocumentById = async (req, res) => {
       document.title = docName + (document.type === "folder" ? "" : ("." + extension));
     }
 
+    // if description included
+    if (description){
+      document.description = description.toString();
+    }
     // Save the updated document to the database
     await document.save();
 
@@ -812,7 +816,6 @@ const relocateDocumentById = async (req, res) => {
   }
 
   // change new parent to base or new folder 
-  console.log("new " + newFolderId);
   if (newFolderId) {
     const newFolder = await Document.findById(newFolderId);
     if (!newFolder){
@@ -820,7 +823,6 @@ const relocateDocumentById = async (req, res) => {
     }
     newFolder.refDocs.push(documentId);
     document.parentDir = newFolderId;
-    console.log("new size " + newFolder.fileSize + " " + document.fileSize);
     newFolder.fileSize = newFolder.fileSize + document.fileSize;
     await newFolder.save();
   } else {
