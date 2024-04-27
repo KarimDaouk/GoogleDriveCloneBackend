@@ -360,7 +360,7 @@ const updateDocumentById = async (req, res) => {
 const getOwnedDocumentsById = async (req, res) => {
   try {
     const userId = req.params.id; 
-    const userDocuments = await Document.find({ ownerId: userId });
+    const userDocuments = await Document.find({ ownerId: userId , deleted: false});
     const parentUserDocuments = userDocuments.filter(userDocument => userDocument.parentDir === null);
     res
       .status(200)
@@ -376,7 +376,7 @@ const getSharedDocumentsById = async (req, res) => {
 
   try {
     const userId = req.params.id; 
-    const sharedDocuments = await Document.find({ sharedWith: userId });
+    const sharedDocuments = await Document.find({ sharedWith: userId , deleted : false });
     const parentSharedDocuments = sharedDocuments.filter(sharedDocument => sharedDocument.parentDir === null);
     res
       .status(200)
@@ -460,9 +460,7 @@ const filterDocsTrial = async (req, res) => {
       pipeline.push({ $match: { title: { $regex: itemName, $options: 'i' } } });
     }
 
-    if (starred){
-    pipeline.push({ $match: { starred : true}});
-  }
+    pipeline.push({ $match: { starred : starred==='true' ? true : false}});
 
     pipeline.push({ $match: { deleted : deleted==='true' ? true : false}});
 
@@ -835,10 +833,10 @@ const getStarredDocumentById = async (req, res) => {
   try {
     const userId = req.params.id; 
 
-    const userOwnedDocuments = await Document.find({ ownerId: userId, starred: true });
+    const userOwnedDocuments = await Document.find({ ownerId: userId, starred: true , deleted: false});
     const parentUserDocuments = userOwnedDocuments.filter(userDocument => userDocument.parentDir === null);
 
-    const sharedDocuments = await Document.find({ sharedWith: userId, starred: true });
+    const sharedDocuments = await Document.find({ sharedWith: userId, starred: true , deleted: false});
     const parentSharedDocuments = sharedDocuments.filter(sharedDocument => sharedDocument.parentDir === null);
 
     const starredDocuments = [...parentUserDocuments, ...parentSharedDocuments];
