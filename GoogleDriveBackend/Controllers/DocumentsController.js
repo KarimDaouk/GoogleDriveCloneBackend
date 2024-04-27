@@ -333,7 +333,9 @@ const updateDocumentById = async (req, res) => {
     // if name  included
     if (docName){
       const documentName = document.title;
-      document.title = docName + documentName.includes(".") ? ("." + documentName.split('.')[1]) : "";
+      const split = documentName.split('.');
+      const extension = split[split.length-1];
+      document.title = docName + (document.type === "folder" ? "" : ("." + extension));
     }
 
     // Save the updated document to the database
