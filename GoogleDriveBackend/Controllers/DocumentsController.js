@@ -62,6 +62,7 @@ const createDocument = async (req, res) => {
 
     if (folder) {
       folder.refDocs.push(savedDocument._id);
+      folder.fileSize = folder.fileSize + savedDocument.fileSize;
       await folder.save();
     }
     
@@ -190,6 +191,18 @@ const softDeleteDocumentById = async (req, res) => {
       },
       { new: true }
     );
+    const parentFileID = updatedDocument.parentDir;
+    const fileSize = updatedDocument.fileSize;
+    //update file size
+    if (parentFileID){
+        const parentFile = await Document.findById(parentFileID);
+        if (parentFile){
+          const parentFileSize = parentFile.fileSize;
+          parentFile.fileSize = parentFileSize - fileSize;
+          await parentFile.save();
+        }
+    }
+
     if (updatedDocument && updatedDocument.type === "file" && updatedDocument.refDocs) {
       const refDocsIds = updatedDocument.refDocs;
       const updateResult = await Document.updateMany(
@@ -201,12 +214,21 @@ const softDeleteDocumentById = async (req, res) => {
         return res.status(200).json(response);
       }
       const parentId= updatedDocument.parentDir;
+      const documentFileSize = updatedDocument.fileSize;
+
       if(parentId!=null){
       const updatedParentDoc = await Document.findByIdAndUpdate(
         parentId,
         { $pull: { sharedWith: updatedDocument.id } }, // Remove Doc ID from sharedWith array
         { new: true } // Returns the updated document
       );
+
+      // remove folder's size
+      if (updatedParentDoc) {
+        const newFileSize = updatedParentDoc.fileSize - documentFileSize;
+        updatedParentDoc.fileSize = newFileSize;
+        await updatedParentDoc.save();
+    }
     }
     }
 
@@ -265,6 +287,20 @@ const hardDeleteDocumentById = async (req, res) => {
         } catch (err) {
             console.error(`Error deleting file ${doc.fileName}:`, err);
         }
+      }
+    }
+
+    if (deletedDocument){
+      const docParentId = deletedDocument.parentDir;
+      const documentId = deletedDocument._id;
+      console.log("id " + documentId);
+      if (docParentId){
+        const oldFolder = await Document.findById(docParentId);
+        if (!oldFolder || oldFolder.type !== 'folder'){
+          return res.status(200).json(new ApiResponse(404, "Old Parent Folder not found", {}))
+        }
+        oldFolder.refDocs = oldFolder.refDocs.filter(refDocId => refDocId.toString() !== documentId.toString());
+        await oldFolder.save();
       }
     }
 
@@ -770,6 +806,8 @@ const relocateDocumentById = async (req, res) => {
       return res.status(200).json(new ApiResponse(404, "Old Parent Folder not found", {}))
     }
     oldFolder.refDocs = oldFolder.refDocs.filter(refDocId => refDocId.toString() !== documentId);
+    // update file size
+    oldFolder.fileSize = oldFolder.fileSize - document.fileSize;
     await oldFolder.save();
   }
 
@@ -782,6 +820,8 @@ const relocateDocumentById = async (req, res) => {
     }
     newFolder.refDocs.push(documentId);
     document.parentDir = newFolderId;
+    console.log("new size " + newFolder.fileSize + " " + document.fileSize);
+    newFolder.fileSize = newFolder.fileSize + document.fileSize;
     await newFolder.save();
   } else {
     document.parentDir = null;
