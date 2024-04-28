@@ -327,7 +327,7 @@ const hardDeleteDocumentById = async (req, res) => {
 const updateDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
-    const { ownerId, sharedWith, starred, docName, description} = req.body;
+    const { ownerId, sharedWith, starred, docName, description, deleted} = req.body;
     //console.log("owner " + ownerId + " " + typeof sharedWith + " " + starred)
 
     // Find document by ID in the database
@@ -364,6 +364,11 @@ const updateDocumentById = async (req, res) => {
     // if starred included
     if (typeof starred !== 'undefined') {
       document.starred = (starred === true);
+    }
+
+    // if deleted included
+    if (typeof deleted !== 'undefined') {
+      document.deleted = (deleted === true);
     }
 
     // if name  included
