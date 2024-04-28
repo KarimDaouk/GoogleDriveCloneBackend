@@ -328,7 +328,7 @@ const updateDocumentById = async (req, res) => {
   try {
     const documentId = req.params.id;
     const { ownerId, sharedWith, starred, docName, description} = req.body;
-    console.log("owner " + ownerId + " " + typeof sharedWith + " " + starred)
+    //console.log("owner " + ownerId + " " + typeof sharedWith + " " + starred)
 
     // Find document by ID in the database
     const document = await Document.findById(documentId);
@@ -581,7 +581,12 @@ const filterDocsTrial = async (req, res) => {
         pipeline.push({
           $match: {sharedWith : userId}
         })
-      } else { // more locations
+      } else if (location === 'starred'){
+        pipeline.push({ $match: { starred : true}});
+      } else if (location === 'binned'){
+        pipeline.push({ $match: { deleted : true}});
+      }
+      else { // more locations
           const parentFolderId = location;
           pipeline.push({
             $match: {parentDir : new mongoose.Types.ObjectId(location)}
