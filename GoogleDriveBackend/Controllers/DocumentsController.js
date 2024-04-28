@@ -839,23 +839,23 @@ const relocateDocumentById = async (req, res) => {
 }
 
 const downloadDocument = async (req, res) => {
- 
   try {
     const documentId = req.params.id;
     console.log(documentId);
+    
     // Fetch the document details from the database (e.g., MongoDB)
-    const document = await Document.findById(new mongoose.Types.ObjectId(documentId));
+    const document = await Document.findById(documentId);
 
     if (!document) {
-      return res.status(200).json(new ApiResponse(404, "Document not found", {}))
+      return res.status(404).json(new ApiResponse(404, "Document not found", {}));
     }
 
     // Construct the path to the document file in the uploads folder
-    const filePath = path.join(__dirname,'..', 'Uploads', document.fileName);
+    const filePath = path.join(__dirname, '..', 'Uploads', document.fileName);
 
     // Check if the file exists
     if (!fs.existsSync(filePath)) {
-      return res.status(200).json(new ApiResponse(404, "Uploaded document not found", {}))
+      return res.status(404).json(new ApiResponse(404, "Uploaded document not found", {}));
     }
 
     // Set the appropriate headers for the file download
@@ -866,10 +866,12 @@ const downloadDocument = async (req, res) => {
     fs.createReadStream(filePath).pipe(res);
   } catch (error) {
     console.error('Error downloading document:', error);
-
-    res.status(200).json(new ApiResponse(500, "Internal Server Error", {}))
+    res.status(500).json(new ApiResponse(500, "Internal Server Error", {}));
   }
-}
+};
+
+
+
 
 const getStarredDocumentById = async (req, res) => {
   try {
@@ -910,5 +912,6 @@ module.exports = {
   getFolderContentById,
   relocateDocumentById,
   downloadDocument,
-  getStarredDocumentById
+  getStarredDocumentById,
+ 
 };
