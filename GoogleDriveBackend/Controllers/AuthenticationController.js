@@ -34,7 +34,7 @@ const login = async (req, res) => {
 
     // If credentials are correct, generate JWT token and add it to the user Object
     // set it to 30 days if remember me is set
-    const token = jwt.sign({ userId: rememberMe }, secretKey, { expiresIn: rememberMe===false ? '1h' : '30d' });
+    const token = jwt.sign({ userId: user._id }, secretKey, { expiresIn: rememberMe===false ? '1h' : '30d' });
   
     const userToSend = new LoginResponseDTO(user.id, user.name, user.email, '****', token);
    
